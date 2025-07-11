@@ -2,6 +2,7 @@
 
 A modern, real-time queue management system built with Next.js, Node.js, and MongoDB. Perfect for businesses, Hospitals, clinics, banks, and any organization that needs efficient customer queue management.
 
+
 ## ✨ Features
 
 - **Real-time Queue Updates** - Live queue status with Socket.IO
@@ -11,6 +12,27 @@ A modern, real-time queue management system built with Next.js, Node.js, and Mon
 - **Analytics Dashboard** - Queue performance insights
 - **Mobile Responsive** - Works on all devices
 - **Admin Panel** - Complete queue management controls
+
+## 📸 Screenshots
+
+### Sign In
+
+![Sign In](Images/SignIn.png)
+
+### Dashboard
+
+![Dashboard](Images/Dashboard.png)
+
+### Queue Management
+
+![Queue Management](Images/QueueManagement.png)
+
+
+![Queue 2](Images/Queue2.png)
+
+### Analytics
+
+![Analytics](Images/Analytics.png)
 
 ---
 
@@ -103,7 +125,7 @@ npm install
 npm run dev
 ```
 
-### 7. Troubleshooting & FAQ
+### 6. Troubleshooting & FAQ
 
 - If you encounter port conflicts, ensure ports 3000 (frontend), 5001 (backend), and 27017 (MongoDB) are free.
 - For environment variable issues, double-check your `.env` file.
@@ -130,7 +152,6 @@ The backend exposes a RESTful API for all queue, token, and user operations. For
 - **Socket.IO** – Real-time communication between backend and frontend
 - **Email Service Utility** – For notifications (see `utils/emailService.ts` in both backend and frontend)
 - **Custom Middleware** – For authentication, error handling, and more
-
 
 ## 🛠 Technology Stack
 
