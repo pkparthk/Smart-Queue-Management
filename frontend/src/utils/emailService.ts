@@ -89,9 +89,9 @@ class EmailService {
         reply_to: "noreply@smartqueue.app",
       };
 
-      console.log("📧 Sending welcome email with params:", templateParams);
-      console.log("📧 Using service:", this.config.serviceId);
-      console.log("📧 Using template:", this.config.templateId);
+      // console.log("📧 Sending welcome email with params:", templateParams);
+      // console.log("📧 Using service:", this.config.serviceId);
+      // console.log("📧 Using template:", this.config.templateId);
 
       const result = await emailjs.send(
         this.config.serviceId,
@@ -99,7 +99,7 @@ class EmailService {
         templateParams
       );
 
-      console.log("📧 ✅ Welcome email sent successfully:", result);
+      console.log("✅ Welcome email sent successfully:", result);
       return true;
     } catch (error: any) {
       console.error("📧 ❌ Failed to send welcome email:", error);
@@ -136,7 +136,7 @@ class EmailService {
         current_time: new Date().toLocaleTimeString(),
       };
 
-      console.log("📧 Sending manager message with params:", templateParams);
+      // console.log("📧 Sending manager message with params:", templateParams);
 
       const result = await emailjs.send(
         this.config.serviceId,
@@ -144,10 +144,10 @@ class EmailService {
         templateParams
       );
 
-      console.log("📧 ✅ Manager message sent successfully:", result);
+      // console.log("📧 ✅ Manager message sent successfully:", result);
       return true;
     } catch (error: any) {
-      console.error("📧 ❌ Failed to send manager message:", error);
+      // console.error("📧 ❌ Failed to send manager message:", error);
       return false;
     }
   }
