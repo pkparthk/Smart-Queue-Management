@@ -56,7 +56,3 @@ frontend/
 ## Deployment
 
 See the main project `DEPLOYMENT.md` for deployment instructions.
-
-## License
-
-MIT
