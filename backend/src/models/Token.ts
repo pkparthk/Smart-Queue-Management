@@ -18,10 +18,10 @@ export interface IToken extends Document {
     completed?: Date;
     cancelled?: Date;
   };
-  serviceTime?: number; // in minutes
-  waitTime?: number; // in minutes
+  serviceTime?: number; 
+  waitTime?: number; 
   notes?: string;
-  assignedTo?: string; // Staff member assigned to handle this token
+  assignedTo?: string; 
   createdAt: Date;
   updatedAt: Date;
 }
@@ -107,8 +107,7 @@ const tokenSchema = new Schema<IToken>(
     timestamps: true,
     toJSON: {
       virtuals: true,
-      transform: function (doc: any, ret: any) {
-        // Keep _id but add id field for compatibility
+      transform: function (doc: any, ret: any) {        
         ret.id = ret._id;
         delete ret.__v;
         return ret;
@@ -117,14 +116,12 @@ const tokenSchema = new Schema<IToken>(
   }
 );
 
-// Indexes for better performance
 tokenSchema.index({ queueId: 1, status: 1 });
 tokenSchema.index({ queueId: 1, position: 1 });
 tokenSchema.index({ status: 1 });
 tokenSchema.index({ "timestamps.created": -1 });
 tokenSchema.index({ queueId: 1, status: 1, position: 1 });
 
-// Compound unique index to prevent duplicate positions in the same queue for active tokens
 tokenSchema.index(
   { queueId: 1, position: 1 },
   {
@@ -133,17 +130,13 @@ tokenSchema.index(
   }
 );
 
-// Virtual for estimated wait time based on position and average service time
 tokenSchema.virtual("estimatedWaitTime").get(function () {
   if (this.status !== "waiting") return 0;
-
-  // This would typically be calculated based on queue analytics
-  // For now, we'll use a simple estimation: position * average service time
+  
   const avgServiceTime = 5; // 5 minutes average
   return (this.position - 1) * avgServiceTime;
 });
 
-// Pre-save middleware to calculate wait time when status changes
 tokenSchema.pre("save", function (next: any) {
   if (this.isModified("status")) {
     const now = new Date();

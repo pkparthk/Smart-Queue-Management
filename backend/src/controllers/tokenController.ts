@@ -6,15 +6,11 @@ import { asyncHandler } from "../middleware/errorHandler";
 import { AuthRequest } from "../middleware/auth";
 import emailService from "../utils/emailService";
 
-// @desc    Get tokens for a queue
-// @route   GET /api/tokens/queue/:queueId
-// @access  Private
 export const getTokensByQueue = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const { queueId } = req.params;
     const status = req.query.status as string;
 
-    // Verify queue belongs to user
     const queue = await Queue.findOne({
       _id: queueId,
       managerId: req.user!._id,
@@ -44,12 +40,8 @@ export const getTokensByQueue = asyncHandler(
   }
 );
 
-// @desc    Create new token
-// @route   POST /api/tokens
-// @access  Private
 export const createToken = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
-    // Check validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({
@@ -62,7 +54,6 @@ export const createToken = asyncHandler(
 
     const { queueId, customerName, priority, contactInfo, notes } = req.body;
 
-    // Verify queue belongs to user and is active
     const queue = await Queue.findOne({
       _id: queueId,
       managerId: req.user!._id,
@@ -77,7 +68,6 @@ export const createToken = asyncHandler(
       return;
     }
 
-    // Check if queue is at capacity
     if (queue.maxCapacity && queue.currentLength >= queue.maxCapacity) {
       res.status(400).json({
         success: false,
@@ -86,7 +76,6 @@ export const createToken = asyncHandler(
       return;
     }
 
-    // Get next position
     const lastToken = await Token.findOne({
       queueId,
       status: { $in: ["waiting", "in_service"] },
@@ -94,7 +83,6 @@ export const createToken = asyncHandler(
 
     const nextPosition = lastToken ? lastToken.position + 1 : 1;
 
-    // Generate token number
     const tokenNumber = `${queue.name.substring(0, 3).toUpperCase()}-${String(
       nextPosition
     ).padStart(3, "0")}`;
@@ -109,13 +97,11 @@ export const createToken = asyncHandler(
       notes,
     });
 
-    // Update queue current length
     queue.currentLength += 1;
     await queue.save();
 
     await token.populate("queueId", "name");
 
-    // Emit socket event for real-time updates
     const io = req.app.get("io");
     io.to(`queue_${queueId}`).emit("tokenAdded", {
       token,
@@ -131,9 +117,6 @@ export const createToken = asyncHandler(
   }
 );
 
-// @desc    Update token position (reorder)
-// @route   PUT /api/tokens/:id/position
-// @access  Private
 export const updateTokenPosition = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const { newPosition } = req.body;
@@ -156,7 +139,6 @@ export const updateTokenPosition = asyncHandler(
       return;
     }
 
-    // Verify queue belongs to user
     const queue = await Queue.findOne({
       _id: token.queueId,
       managerId: req.user!._id,
@@ -170,7 +152,6 @@ export const updateTokenPosition = asyncHandler(
       return;
     }
 
-    // Only allow reordering of waiting tokens
     if (token.status !== "waiting") {
       res.status(400).json({
         success: false,
@@ -181,9 +162,7 @@ export const updateTokenPosition = asyncHandler(
 
     const oldPosition = token.position;
 
-    // Update positions of other tokens
     if (newPosition > oldPosition) {
-      // Moving down: decrease position of tokens between old and new position
       await Token.updateMany(
         {
           queueId: token.queueId,
@@ -194,7 +173,6 @@ export const updateTokenPosition = asyncHandler(
         { $inc: { position: -1 } }
       );
     } else {
-      // Moving up: increase position of tokens between new and old position
       await Token.updateMany(
         {
           queueId: token.queueId,
@@ -206,17 +184,14 @@ export const updateTokenPosition = asyncHandler(
       );
     }
 
-    // Update the token's position
     token.position = newPosition;
     await token.save();
 
-    // Get updated token list
     const updatedTokens = await Token.find({
       queueId: token.queueId,
       status: { $in: ["waiting", "in_service"] },
     }).sort({ position: 1 });
 
-    // Emit socket event for real-time updates
     const io = req.app.get("io");
     io.to(`queue_${token.queueId}`).emit("tokensReordered", {
       tokens: updatedTokens,
@@ -231,14 +206,10 @@ export const updateTokenPosition = asyncHandler(
   }
 );
 
-// @desc    Call next token (assign for service)
-// @route   PUT /api/tokens/queue/:queueId/call-next
-// @access  Private
 export const callNextToken = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const { queueId } = req.params;
 
-    // Verify queue belongs to user
     const queue = await Queue.findOne({
       _id: queueId,
       managerId: req.user!._id,
@@ -252,7 +223,6 @@ export const callNextToken = asyncHandler(
       return;
     }
 
-    // Find the next waiting token
     const nextToken = await Token.findOne({
       queueId,
       status: "waiting",
@@ -266,13 +236,11 @@ export const callNextToken = asyncHandler(
       return;
     }
 
-    // Update token status to in_service
     nextToken.status = "in_service";
     await nextToken.save();
 
     await nextToken.populate("queueId", "name");
 
-    // Emit socket event for real-time updates
     const io = req.app.get("io");
     io.to(`queue_${queueId}`).emit("tokenCalled", {
       token: nextToken,
@@ -287,9 +255,6 @@ export const callNextToken = asyncHandler(
   }
 );
 
-// @desc    Complete token service
-// @route   PUT /api/tokens/:id/complete
-// @access  Private
 export const completeToken = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const tokenId = req.params.id;
@@ -304,7 +269,6 @@ export const completeToken = asyncHandler(
       return;
     }
 
-    // Verify queue belongs to user
     const queue = await Queue.findOne({
       _id: token.queueId,
       managerId: req.user!._id,
@@ -318,7 +282,6 @@ export const completeToken = asyncHandler(
       return;
     }
 
-    // Only allow completing tokens that are in service
     if (token.status !== "in_service") {
       res.status(400).json({
         success: false,
@@ -327,17 +290,14 @@ export const completeToken = asyncHandler(
       return;
     }
 
-    // Update token status
     token.status = "served";
     if (notes) token.notes = notes;
     await token.save();
 
-    // Update queue statistics
     queue.totalServed += 1;
     queue.currentLength = Math.max(0, queue.currentLength - 1);
     await queue.save();
 
-    // Emit socket event for real-time updates
     const io = req.app.get("io");
     io.to(`queue_${token.queueId}`).emit("tokenCompleted", {
       token,
@@ -353,9 +313,6 @@ export const completeToken = asyncHandler(
   }
 );
 
-// @desc    Cancel token
-// @route   DELETE /api/tokens/:id
-// @access  Private
 export const cancelToken = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const tokenId = req.params.id;
@@ -369,7 +326,6 @@ export const cancelToken = asyncHandler(
       return;
     }
 
-    // Verify queue belongs to user
     const queue = await Queue.findOne({
       _id: token.queueId,
       managerId: req.user!._id,
@@ -383,7 +339,6 @@ export const cancelToken = asyncHandler(
       return;
     }
 
-    // Can only cancel waiting or in_service tokens
     if (!["waiting", "in_service"].includes(token.status)) {
       res.status(400).json({
         success: false,
@@ -395,11 +350,9 @@ export const cancelToken = asyncHandler(
     const wasWaiting = token.status === "waiting";
     const tokenPosition = token.position;
 
-    // Update token status
     token.status = "cancelled";
     await token.save();
 
-    // If token was waiting, adjust positions of subsequent tokens
     if (wasWaiting) {
       await Token.updateMany(
         {
@@ -411,18 +364,15 @@ export const cancelToken = asyncHandler(
       );
     }
 
-    // Update queue statistics
     queue.totalCancelled += 1;
     queue.currentLength = Math.max(0, queue.currentLength - 1);
     await queue.save();
 
-    // Get updated token list
     const updatedTokens = await Token.find({
       queueId: token.queueId,
       status: { $in: ["waiting", "in_service"] },
     }).sort({ position: 1 });
 
-    // Emit socket event for real-time updates
     const io = req.app.get("io");
     io.to(`queue_${token.queueId}`).emit("tokenCancelled", {
       token,
@@ -439,9 +389,6 @@ export const cancelToken = asyncHandler(
   }
 );
 
-// @desc    Update token status
-// @route   PATCH /api/tokens/:id
-// @access  Private
 export const updateTokenStatus = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const tokenId = req.params.id;
@@ -456,7 +403,6 @@ export const updateTokenStatus = asyncHandler(
       return;
     }
 
-    // Verify queue belongs to user
     const queue = await Queue.findOne({
       _id: token.queueId,
       managerId: req.user!._id,
@@ -472,11 +418,9 @@ export const updateTokenStatus = asyncHandler(
 
     const oldStatus = token.status;
 
-    // Update status if provided
     if (status) {
       token.status = status;
 
-      // Handle status-specific logic
       if (status === "in_service" && oldStatus === "waiting") {
         token.timestamps.called = new Date();
       } else if (status === "served" && oldStatus === "in_service") {
@@ -491,7 +435,6 @@ export const updateTokenStatus = asyncHandler(
       }
     }
 
-    // Update notes if provided
     if (notes !== undefined) {
       token.notes = notes;
     }
@@ -499,7 +442,6 @@ export const updateTokenStatus = asyncHandler(
     await token.save();
     await queue.save();
 
-    // Emit socket event for real-time updates
     const io = req.app.get("io");
     io.to(`queue_${token.queueId}`).emit("tokenUpdated", {
       token,
@@ -515,9 +457,6 @@ export const updateTokenStatus = asyncHandler(
   }
 );
 
-// @desc    Assign token to staff member
-// @route   PATCH /api/tokens/:id/assign
-// @access  Private
 export const assignToken = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const tokenId = req.params.id;
@@ -532,7 +471,6 @@ export const assignToken = asyncHandler(
       return;
     }
 
-    // Verify queue belongs to user
     const queue = await Queue.findOne({
       _id: token.queueId,
       managerId: req.user!._id,
@@ -546,7 +484,6 @@ export const assignToken = asyncHandler(
       return;
     }
 
-    // Set assignedTo field and add assignment note
     token.assignedTo = assignedTo;
     const assignmentNote = `[${new Date().toLocaleTimeString()}] Assigned to: ${assignedTo}`;
     token.notes = token.notes
@@ -555,7 +492,6 @@ export const assignToken = asyncHandler(
 
     await token.save();
 
-    // Emit socket event for real-time updates
     const io = req.app.get("io");
     io.to(`queue_${token.queueId}`).emit("tokenAssigned", {
       token,
@@ -571,9 +507,6 @@ export const assignToken = asyncHandler(
   }
 );
 
-// @desc    Reorder token position
-// @route   PATCH /api/tokens/:id/reorder
-// @access  Private
 export const reorderToken = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const tokenId = req.params.id;
@@ -588,7 +521,6 @@ export const reorderToken = asyncHandler(
       return;
     }
 
-    // Verify queue belongs to user
     const queue = await Queue.findOne({
       _id: token.queueId,
       managerId: req.user!._id,
@@ -602,7 +534,6 @@ export const reorderToken = asyncHandler(
       return;
     }
 
-    // Only allow reordering of waiting tokens
     if (token.status !== "waiting") {
       res.status(400).json({
         success: false,
@@ -613,9 +544,7 @@ export const reorderToken = asyncHandler(
 
     const oldPosition = token.position;
 
-    // Update positions of other tokens
     if (newPosition > oldPosition) {
-      // Moving down: decrease position of tokens between old and new position
       await Token.updateMany(
         {
           queueId: token.queueId,
@@ -626,7 +555,6 @@ export const reorderToken = asyncHandler(
         { $inc: { position: -1 } }
       );
     } else {
-      // Moving up: increase position of tokens between new and old position
       await Token.updateMany(
         {
           queueId: token.queueId,
@@ -638,17 +566,14 @@ export const reorderToken = asyncHandler(
       );
     }
 
-    // Update token position
     token.position = newPosition;
     await token.save();
 
-    // Get updated token list
     const updatedTokens = await Token.find({
       queueId: token.queueId,
       status: { $in: ["waiting", "in_service"] },
     }).sort({ position: 1 });
 
-    // Emit socket event for real-time updates
     const io = req.app.get("io");
     io.to(`queue_${token.queueId}`).emit("tokenReordered", {
       token,
@@ -664,9 +589,6 @@ export const reorderToken = asyncHandler(
   }
 );
 
-// @desc    Send message to customer via email
-// @route   POST /api/tokens/:id/message
-// @access  Private
 export const sendMessageToCustomer = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const tokenId = req.params.id;
@@ -689,7 +611,6 @@ export const sendMessageToCustomer = asyncHandler(
       return;
     }
 
-    // Verify queue belongs to user
     const queue = await Queue.findOne({
       _id: token.queueId,
       managerId: req.user!._id,
@@ -713,7 +634,6 @@ export const sendMessageToCustomer = asyncHandler(
     }
 
     try {
-      // Send email to customer
       const emailSent = await emailService.sendQueueMessage(
         customerEmailToUse,
         token.customerName || "Customer",
@@ -728,7 +648,6 @@ export const sendMessageToCustomer = asyncHandler(
         );
       }
 
-      // Add message to token notes with timestamp
       const timestampedMessage = `[${new Date().toLocaleTimeString()}] Manager: ${message}`;
       token.notes = token.notes
         ? `${token.notes}\n${timestampedMessage}`
@@ -736,7 +655,6 @@ export const sendMessageToCustomer = asyncHandler(
 
       await token.save();
 
-      // Emit socket event for real-time updates
       const io = req.app.get("io");
       io.to(`queue_${token.queueId}`).emit("messageToCustomer", {
         token,

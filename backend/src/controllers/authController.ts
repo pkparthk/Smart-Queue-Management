@@ -4,7 +4,7 @@ import { validationResult } from "express-validator";
 import User from "../models/User";
 import { asyncHandler } from "../middleware/errorHandler";
 
-// Generate JWT Token
+
 const generateToken = (userId: string): string => {
   const jwtSecret = process.env.JWT_SECRET;
   if (!jwtSecret) {
@@ -16,9 +16,6 @@ const generateToken = (userId: string): string => {
   } as jwt.SignOptions);
 };
 
-// @desc    Register user
-// @route   POST /api/auth/register
-// @access  Public
 export const register = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     // Check validation errors
@@ -33,8 +30,7 @@ export const register = asyncHandler(
     }
 
     const { email, password, name, role } = req.body;
-
-    // Check if user already exists
+    
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       res.status(400).json({
@@ -43,16 +39,14 @@ export const register = asyncHandler(
       });
       return;
     }
-
-    // Create user
+    
     const user = await User.create({
       email,
       password,
       name,
       role: role || "manager",
     });
-
-    // Generate token
+    
     const token = generateToken((user._id as string).toString());
 
     res.status(201).json({
@@ -71,9 +65,7 @@ export const register = asyncHandler(
   }
 );
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
+
 export const login = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     // Check validation errors
@@ -88,8 +80,7 @@ export const login = asyncHandler(
     }
 
     const { email, password } = req.body;
-
-    // Check if user exists and select password
+    
     const user = await User.findOne({ email, isActive: true }).select(
       "+password"
     );
@@ -101,7 +92,6 @@ export const login = asyncHandler(
       return;
     }
 
-    // Check password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       res.status(401).json({
@@ -111,7 +101,6 @@ export const login = asyncHandler(
       return;
     }
 
-    // Generate token
     const token = generateToken((user._id as string).toString());
 
     res.status(200).json({
@@ -130,9 +119,6 @@ export const login = asyncHandler(
   }
 );
 
-// @desc    Get current user
-// @route   GET /api/auth/me
-// @access  Private
 export const getMe = asyncHandler(
   async (req: any, res: Response): Promise<void> => {
     const user = await User.findById(req.user._id);
@@ -153,12 +139,9 @@ export const getMe = asyncHandler(
   }
 );
 
-// @desc    Update user profile
-// @route   PUT /api/auth/profile
-// @access  Private
 export const updateProfile = asyncHandler(
   async (req: any, res: Response): Promise<void> => {
-    // Check validation errors
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({
@@ -170,8 +153,7 @@ export const updateProfile = asyncHandler(
     }
 
     const { name, email } = req.body;
-
-    // Check if email is already taken by another user
+    
     if (email && email !== req.user.email) {
       const existingUser = await User.findOne({
         email,
@@ -207,12 +189,8 @@ export const updateProfile = asyncHandler(
   }
 );
 
-// @desc    Change password
-// @route   PUT /api/auth/change-password
-// @access  Private
 export const changePassword = asyncHandler(
-  async (req: any, res: Response): Promise<void> => {
-    // Check validation errors
+  async (req: any, res: Response): Promise<void> => {    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({
@@ -224,8 +202,7 @@ export const changePassword = asyncHandler(
     }
 
     const { currentPassword, newPassword } = req.body;
-
-    // Get user with password
+    
     const user = await User.findById(req.user._id).select("+password");
     if (!user) {
       res.status(404).json({
@@ -234,8 +211,7 @@ export const changePassword = asyncHandler(
       });
       return;
     }
-
-    // Check current password
+    
     const isCurrentPasswordValid = await user.comparePassword(currentPassword);
     if (!isCurrentPasswordValid) {
       res.status(400).json({
@@ -244,8 +220,7 @@ export const changePassword = asyncHandler(
       });
       return;
     }
-
-    // Update password
+    
     user.password = newPassword;
     await user.save();
 

@@ -11,7 +11,7 @@ import { authenticateToken } from "../middleware/auth";
 
 const router = express.Router();
 
-// Public routes
+
 router.post(
   "/register",
   [
@@ -46,7 +46,7 @@ router.post(
   login
 );
 
-// Protected routes
+
 router.use(authenticateToken);
 
 router.get("/me", getMe);

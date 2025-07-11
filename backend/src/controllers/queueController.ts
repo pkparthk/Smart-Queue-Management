@@ -5,9 +5,6 @@ import Token from "../models/Token";
 import { asyncHandler } from "../middleware/errorHandler";
 import { AuthRequest } from "../middleware/auth";
 
-// @desc    Get all queues for the authenticated manager
-// @route   GET /api/queues
-// @access  Private
 export const getQueues = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const page = parseInt(req.query.page as string) || 1;
@@ -16,7 +13,6 @@ export const getQueues = asyncHandler(
 
     const filter: any = { managerId: req.user!._id };
 
-    // Filter by active status if specified
     if (req.query.isActive !== undefined) {
       filter.isActive = req.query.isActive === "true";
     }
@@ -27,7 +23,6 @@ export const getQueues = asyncHandler(
       .limit(limit)
       .skip(skip);
 
-    // Transform queues data to match frontend expectations
     const transformedQueues = queues.map((queue) => ({
       _id: queue._id,
       name: queue.name,
@@ -56,14 +51,10 @@ export const getQueues = asyncHandler(
   }
 );
 
-// @desc    Get single queue
-// @route   GET /api/queues/:id
-// @access  Private
 export const getQueue = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const queueId = req.params.id;
 
-    // Check for invalid queue ID
     if (!queueId || queueId === "undefined" || queueId.length !== 24) {
       res.status(400).json({
         success: false,
@@ -85,7 +76,6 @@ export const getQueue = asyncHandler(
       return;
     }
 
-    // Get all tokens for this queue
     const tokens = await Token.find({
       queueId: queue._id,
     }).sort({ position: 1, createdAt: 1 });
@@ -100,12 +90,8 @@ export const getQueue = asyncHandler(
   }
 );
 
-// @desc    Create new queue
-// @route   POST /api/queues
-// @access  Private
 export const createQueue = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
-    // Check validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({
@@ -135,12 +121,8 @@ export const createQueue = asyncHandler(
   }
 );
 
-// @desc    Update queue
-// @route   PUT /api/queues/:id
-// @access  Private
 export const updateQueue = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
-    // Check validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({
@@ -178,9 +160,6 @@ export const updateQueue = asyncHandler(
   }
 );
 
-// @desc    Delete queue
-// @route   DELETE /api/queues/:id
-// @access  Private
 export const deleteQueue = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const queue = await Queue.findOne({
@@ -196,7 +175,6 @@ export const deleteQueue = asyncHandler(
       return;
     }
 
-    // Check if queue has active tokens
     const activeTokens = await Token.countDocuments({
       queueId: queue._id,
       status: { $in: ["waiting", "in_service"] },
@@ -220,9 +198,6 @@ export const deleteQueue = asyncHandler(
   }
 );
 
-// @desc    Get queue statistics
-// @route   GET /api/queues/:id/stats
-// @access  Private
 export const getQueueStats = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const queue = await Queue.findOne({
@@ -238,7 +213,6 @@ export const getQueueStats = asyncHandler(
       return;
     }
 
-    // Get various statistics
     const stats = await Token.aggregate([
       { $match: { queueId: queue._id } },
       {
@@ -251,7 +225,6 @@ export const getQueueStats = asyncHandler(
       },
     ]);
 
-    // Get today's statistics
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -272,7 +245,6 @@ export const getQueueStats = asyncHandler(
       },
     ]);
 
-    // Get hourly distribution for today
     const hourlyStats = await Token.aggregate([
       {
         $match: {

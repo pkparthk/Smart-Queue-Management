@@ -7,25 +7,16 @@ import { AuthRequest, authenticateToken } from "../middleware/auth";
 
 const router = express.Router();
 
-// Apply authentication to all routes
 router.use(authenticateToken);
 
-// @desc    Get overall analytics for manager's queues
-// @route   GET /api/analytics/overview
-// @access  Private
 const getOverviewAnalytics = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const managerId = req.user!._id;
-
-    // Get date range from query params (default to last 30 days)
     const days = parseInt(req.query.days as string) || 30;
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
-
-    // Get manager's queues
     const queues = await Queue.find({ managerId }).select("_id name");
     const queueIds = queues.map((q) => q._id);
-
     if (queueIds.length === 0) {
       res.status(200).json({
         success: true,
@@ -43,8 +34,6 @@ const getOverviewAnalytics = asyncHandler(
       });
       return;
     }
-
-    // Aggregate statistics
     const stats = await Token.aggregate([
       {
         $match: {
@@ -67,8 +56,6 @@ const getOverviewAnalytics = asyncHandler(
         },
       },
     ]);
-
-    // Daily statistics
     const dailyStats = await Token.aggregate([
       {
         $match: {
@@ -104,8 +91,6 @@ const getOverviewAnalytics = asyncHandler(
       },
       { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
     ]);
-
-    // Queue performance
     const queuePerformance = await Token.aggregate([
       {
         $match: {
@@ -160,7 +145,6 @@ const getOverviewAnalytics = asyncHandler(
         },
       },
     ]);
-
     const result = stats[0] || {
       totalTokens: 0,
       tokensServed: 0,
@@ -168,12 +152,10 @@ const getOverviewAnalytics = asyncHandler(
       avgWaitTime: 0,
       avgServiceTime: 0,
     };
-
     const efficiency =
       result.totalTokens > 0
         ? Math.round((result.tokensServed / result.totalTokens) * 100 * 10) / 10
         : 0;
-
     res.status(200).json({
       success: true,
       data: {
@@ -191,36 +173,28 @@ const getOverviewAnalytics = asyncHandler(
   }
 );
 
-// @desc    Get real-time queue status
-// @route   GET /api/analytics/realtime
-// @access  Private
 const getRealtimeStatus = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const managerId = req.user!._id;
-
     const queues = await Queue.find({ managerId, isActive: true }).select(
       "name currentLength"
     );
-
     const realtimeStats = await Promise.all(
       queues.map(async (queue) => {
         const waitingTokens = await Token.countDocuments({
           queueId: queue._id,
           status: "waiting",
         });
-
         const inServiceTokens = await Token.countDocuments({
           queueId: queue._id,
           status: "in_service",
         });
-
         const nextToken = await Token.findOne({
           queueId: queue._id,
           status: "waiting",
         })
           .sort({ position: 1 })
           .select("tokenNumber customerName position");
-
         return {
           queueId: queue._id,
           queueName: queue.name,
@@ -231,7 +205,6 @@ const getRealtimeStatus = asyncHandler(
         };
       })
     );
-
     res.status(200).json({
       success: true,
       data: { queues: realtimeStats },
@@ -239,47 +212,32 @@ const getRealtimeStatus = asyncHandler(
   }
 );
 
-// @desc    Get dashboard analytics for manager
-// @route   GET /api/analytics/dashboard
-// @access  Private
 const getDashboardAnalytics = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const managerId = req.user!._id;
-
-    // Get today's date range
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-
-    // Get manager's queues
     const totalQueues = await Queue.countDocuments({ managerId });
     const activeQueues = await Queue.countDocuments({
       managerId,
       isActive: true,
     });
-
-    // Get today's tokens for this manager's queues
     const managerQueues = await Queue.find({ managerId }).select("_id");
     const queueIds = managerQueues.map((q) => q._id);
-
     let totalTokensToday = 0;
     let averageWaitTime = 0;
-
     if (queueIds.length > 0) {
-      // Count tokens created today
       totalTokensToday = await Token.countDocuments({
         queueId: { $in: queueIds },
         createdAt: { $gte: today, $lt: tomorrow },
       });
-
-      // Calculate average wait time for tokens served today
       const servedTokensToday = await Token.find({
         queueId: { $in: queueIds },
         status: "served",
         "timestamps.served": { $gte: today, $lt: tomorrow },
       }).select("createdAt timestamps");
-
       if (servedTokensToday.length > 0) {
         const totalWaitTime = servedTokensToday.reduce((sum, token) => {
           if (token.timestamps.served) {
@@ -291,10 +249,9 @@ const getDashboardAnalytics = asyncHandler(
         }, 0);
         averageWaitTime = Math.round(
           totalWaitTime / servedTokensToday.length / (1000 * 60)
-        ); // Convert to minutes
+        );
       }
     }
-
     res.status(200).json({
       success: true,
       data: {
@@ -307,7 +264,6 @@ const getDashboardAnalytics = asyncHandler(
   }
 );
 
-// Routes
 router.get("/overview", getOverviewAnalytics);
 router.get("/realtime", getRealtimeStatus);
 router.get("/dashboard", getDashboardAnalytics);
