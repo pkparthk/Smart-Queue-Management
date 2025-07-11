@@ -1,3 +1,15 @@
 {
-  "dockerCommand": "docker build -t smartqueue-frontend . && docker run -p 3000:3000 smartqueue-frontend"
+  "version": 2,
+  "builds": [
+    {
+      "src": "Dockerfile",
+      "use": "@vercel/docker"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/"
+    }
+  ]
 }
