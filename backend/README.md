@@ -60,7 +60,3 @@ backend/
 ## API Documentation
 
 See the main project `README.md` or use Postman to explore `/api` endpoints.
-
-## License
-
-MIT
